@@ -70,8 +70,20 @@ class SAVER(AbstractTool):
             compile_command = "infer -j 20 -g --headers --check-nullable-only -- make -j20"
         else:
             compile_command = "infer -j 20 run -g --headers --check-nullable-only -- make -j20"
+        build_dir = dir_src
+        if definitions.KEY_BUILD_INFO in bug_info:
+            build_info = bug_info[definitions.KEY_BUILD_INFO]
+            if definitions.KEY_BUILD_DIR in build_info:
+                relative_build_dir = build_info[definitions.KEY_BUILD_DIR]
+                if relative_build_dir:
+                    build_dir = build_dir + "/" + relative_build_dir
+            if definitions.KEY_BUILD_BINARY_LIST in build_info:
+                binary_list = bug_info[definitions.KEY_BUILD_BINARY_LIST]
+                binary_str = " ".join(binary_list)
+                new_compile_list = f"{binary_str} -j20"
+                compile_command = compile_command.replace("-j20", new_compile_list)
         emitter.normal("\t\t\t\t compiling subject with " + self.name)
-        self.run_command(compile_command, dir_path=dir_src)
+        self.run_command(compile_command, dir_path=build_dir)
         emitter.normal(
             "\t\t\t\t compilation took {} second(s)".format(
                 (datetime.now() - time).total_seconds()
