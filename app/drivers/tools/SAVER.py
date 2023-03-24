@@ -70,6 +70,7 @@ class SAVER(AbstractTool):
             compile_command = "infer -j 20 -g --headers --check-nullable-only -- make -j20"
         else:
             compile_command = "infer -j 20 run -g --headers --check-nullable-only -- make -j20"
+
         build_dir = dir_src
 
         if definitions.KEY_BUILD_DIR in bug_info:
@@ -91,7 +92,7 @@ class SAVER(AbstractTool):
         time = datetime.now()
         emitter.normal("\t\t\t\t analysing subject with " + self.name)
         analysis_command = "infer saver --pre-analysis-only "
-        self.run_command(analysis_command,  dir_path=dir_src)
+        self.run_command(analysis_command,  dir_path=build_dir)
         emitter.normal(
             "\t\t\t\t analysis took {} second(s)".format(
                 (datetime.now() - time).total_seconds()
@@ -121,18 +122,22 @@ class SAVER(AbstractTool):
             error_exit("Unhandled Exception")
 
         self.timestamp_log_start()
-        saver_command = "cd {};".format(join(self.dir_expr, "src"))
-        saver_command += "timeout -k 5m {0}h saver --error-report {1} ".format(
+        dir_src = join(self.dir_expr, "src")
+        build_dir = dir_src
+        if definitions.KEY_BUILD_DIR in bug_info:
+            relative_build_dir = bug_info[definitions.KEY_BUILD_DIR]
+            if relative_build_dir:
+                build_dir = build_dir + "/" + relative_build_dir
+        saver_command = "timeout -k 5m {0}h saver --error-report {1} ".format(
             str(timeout_h),
             config_path
         )
         bug_type = bug_info[definitions.KEY_BUG_TYPE]
         if bug_type in ["Double Free", "Use After Free"]:
             saver_command += " --analysis-with-fimem "
-        saver_command += "{0} >> {1} 2>&1 ".format(
-            additional_tool_param, self.log_output_path
-        )
-        status = execute_command(saver_command)
+        saver_command += "{0} ".format(additional_tool_param)
+        status = self.run_command(saver_command, dir_path=build_dir,
+                                  log_file_path=self.log_output_path)
         if status != 0:
             emitter.warning(
                 "\t\t\t[warning] {0} exited with an error code {1}".format(
